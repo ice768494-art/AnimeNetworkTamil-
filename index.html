@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0b1020">
+  <title>Anime Updates</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="header">
+  <div class="brand">
+    <div class="logo">A</div>
+    <div><h1>Anime Updates</h1><p>Latest updates from Telegram</p></div>
+  </div>
+  <nav id="channelsTop"></nav>
+</header>
+
+<main class="container">
+  <section class="hero">
+    <div>
+      <span class="badge">● LIVE DATABASE</span>
+      <h2>New anime updates,<br><span>automatically.</span></h2>
+      <p>Posts added to the connected Telegram database appear here without editing the website.</p>
+    </div>
+    <a id="telegramMain" class="primary" href="#" target="_blank" rel="noopener">Join Telegram</a>
+  </section>
+
+  <section class="toolbar">
+    <div class="search">
+      <span>⌕</span>
+      <input id="search" type="search" placeholder="Search anime updates..." autocomplete="off">
+    </div>
+    <button id="refresh">↻ Refresh</button>
+  </section>
+
+  <section>
+    <div class="section-title"><h3>Latest Updates</h3><span id="status">Loading…</span></div>
+    <div id="posts" class="grid"></div>
+    <div id="empty" class="empty" hidden>No updates found.</div>
+  </section>
+</main>
+
+<footer>Powered by Telegram + Supabase + Vercel</footer>
+<script src="script.js"></script>
+</body>
+</html>
