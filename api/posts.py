@@ -1,37 +1,58 @@
 import json
 import os
-import urllib.parse
-import urllib.request
+from http.server import BaseHTTPRequestHandler
+from urllib.request import Request, urlopen
 
-def cors(body, status=200):
-    return {
-        "statusCode": status,
-        "headers": {"Content-Type":"application/json","Cache-Control":"s-maxage=30, stale-while-revalidate=120"},
-        "body": json.dumps(body)
-    }
 
-def query_supabase(table, params):
-    url=os.environ["SUPABASE_URL"].rstrip("/")+"/rest/v1/"+table+"?"+urllib.parse.urlencode(params)
-    req=urllib.request.Request(url,headers={
-        "apikey":os.environ["SUPABASE_ANON_KEY"],
-        "Authorization":"Bearer "+os.environ["SUPABASE_ANON_KEY"],
-    })
-    with urllib.request.urlopen(req,timeout=8) as r:
-        return json.loads(r.read().decode())
+class handler(BaseHTTPRequestHandler):
 
-def handler(request):
-    try:
-        posts=query_supabase("posts",{
-            "select":"id,title,content,category,image_url,message_url,published_at",
-            "is_published":"eq.true",
-            "order":"published_at.desc",
-            "limit":"60"
-        })
-        channels=query_supabase("channels",{
-            "select":"id,name,url,is_main,sort_order",
-            "is_active":"eq.true",
-            "order":"sort_order.asc"
-        })
-        return cors({"posts":posts,"channels":channels})
-    except Exception as e:
-        return cors({"error":"Database configuration or connection failed"},500)
+    def do_GET(self):
+        supabase_url = os.environ.get("SUPABASE_URL")
+        supabase_key = os.environ.get("SUPABASE_ANON_KEY")
+
+        if not supabase_url or not supabase_key:
+            self.send_json({
+                "error": "Supabase environment variables are missing."
+            }, 500)
+            return
+
+        url = (
+            supabase_url.rstrip("/")
+            + "/rest/v1/posts"
+            + "?select=*"
+            + "&is_published=eq.true"
+            + "&order=published_at.desc"
+        )
+
+        request = Request(
+            url,
+            headers={
+                "apikey": supabase_key,
+                "Authorization": f"Bearer {supabase_key}",
+                "Content-Type": "application/json"
+            }
+        )
+
+        try:
+            with urlopen(request, timeout=10) as response:
+                data = json.loads(response.read().decode("utf-8"))
+
+            self.send_json({
+                "posts": data
+            })
+
+        except Exception as error:
+            self.send_json({
+                "error": str(error)
+            }, 500)
+
+    def send_json(self, data, status=200):
+        body = json.dumps(data).encode("utf-8")
+
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+
+        self.wfile.write(body)
