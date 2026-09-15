@@ -1,42 +1,144 @@
-const state={posts:[],channels:[]};
-const $=s=>document.querySelector(s);
+const updatesGrid = document.getElementById("updatesGrid");
+const searchInput = document.getElementById("searchInput");
+const refreshBtn = document.getElementById("refreshBtn");
+const statusText = document.getElementById("statusText");
 
-async function getJSON(url){
-  const r=await fetch(url,{headers:{Accept:"application/json"}});
-  if(!r.ok) throw new Error(await r.text());
-  return r.json();
+let posts = [];
+
+async function loadPosts() {
+    try {
+        statusText.textContent = "Loading...";
+
+        const response = await fetch("/api/posts");
+
+        if (!response.ok) {
+            throw new Error("API request failed");
+        }
+
+        const data = await response.json();
+
+        posts = data.posts || [];
+
+        renderPosts(posts);
+
+        statusText.textContent =
+            `${posts.length} update${posts.length === 1 ? "" : "s"}`;
+
+    } catch (error) {
+        console.error(error);
+
+        statusText.textContent = "Unable to load updates";
+
+        updatesGrid.innerHTML = `
+            <div class="empty">
+                <h3>Database connection unavailable</h3>
+                <p>Check your Supabase environment variables.</p>
+            </div>
+        `;
+    }
 }
-function escapeHTML(s=""){return s.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
-function dateText(v){try{return new Date(v).toLocaleString(undefined,{dateStyle:"medium",timeStyle:"short"});}catch{return ""}}
-function renderChannels(){
-  const nav=$("#channelsTop");
-  nav.innerHTML=state.channels.slice(0,4).map(c=>`<a href="${escapeHTML(c.url)}" target="_blank" rel="noopener">${escapeHTML(c.name)}</a>`).join("");
-  const main=state.channels.find(c=>c.is_main);
-  if(main) $("#telegramMain").href=main.url;
-  else if(state.channels[0]) $("#telegramMain").href=state.channels[0].url;
+
+function renderPosts(items) {
+    if (!items.length) {
+        updatesGrid.innerHTML = `
+            <div class="empty">
+                <h3>No anime updates yet</h3>
+                <p>New Telegram posts will appear here.</p>
+            </div>
+        `;
+        return;
+    }
+
+    updatesGrid.innerHTML = items.map(post => `
+        <article class="anime-card">
+
+            ${
+                post.image_url
+                ? `<img src="${escapeHtml(post.image_url)}"
+                        alt="${escapeHtml(post.title || "Anime")}"
+                        loading="lazy">`
+                : `<div class="poster-placeholder">🎬</div>`
+            }
+
+            <div class="card-content">
+
+                <h3>
+                    ${escapeHtml(post.title || "Anime Update")}
+                </h3>
+
+                <p>
+                    ${escapeHtml(
+                        post.content || "New anime update available."
+                    )}
+                </p>
+
+                <div class="card-footer">
+
+                    ${
+                        post.message_url
+                        ? `<a href="${escapeHtml(post.message_url)}"
+                              target="_blank"
+                              rel="noopener">
+                              View on Telegram
+                           </a>`
+                        : ""
+                    }
+
+                    ${
+                        post.published_at
+                        ? `<small>
+                            ${formatDate(post.published_at)}
+                           </small>`
+                        : ""
+                    }
+
+                </div>
+
+            </div>
+
+        </article>
+    `).join("");
 }
-function render(){
-  const q=$("#search").value.trim().toLowerCase();
-  const items=state.posts.filter(p=>(p.title+" "+p.content).toLowerCase().includes(q));
-  $("#status").textContent=`${items.length} update${items.length===1?"":"s"}`;
-  $("#empty").hidden=items.length!==0;
-  $("#posts").innerHTML=items.map(p=>{
-    const image=p.image_url?`<img class="poster" src="${escapeHTML(p.image_url)}" alt="" loading="lazy">`:`<div class="poster"></div>`;
-    const link=p.message_url||"#";
-    return `<article class="card">${image}<div class="body"><h4>${escapeHTML(p.title||"New Update")}</h4><p>${escapeHTML(p.content||"")}</p><div class="meta"><span>${escapeHTML(p.category||"Update")}</span><span>${dateText(p.published_at)}</span></div>${link!=="#" ? `<a class="watch" href="${escapeHTML(link)}" target="_blank" rel="noopener">Open Telegram Post →</a>`:""}</div></article>`;
-  }).join("");
+
+function filterPosts() {
+    const query = searchInput.value.toLowerCase().trim();
+
+    const filtered = posts.filter(post => {
+        const title = post.title || "";
+        const content = post.content || "";
+        const category = post.category || "";
+
+        return (
+            title.toLowerCase().includes(query) ||
+            content.toLowerCase().includes(query) ||
+            category.toLowerCase().includes(query)
+        );
+    });
+
+    renderPosts(filtered);
 }
-async function load(){
-  $("#status").textContent="Loading…";
-  try{
-    const data=await getJSON("/api/posts");
-    state.posts=data.posts||[]; state.channels=data.channels||[];
-    renderChannels(); render();
-  }catch(e){
-    console.error(e); $("#status").textContent="Could not load updates";
-    $("#empty").hidden=false; $("#empty").textContent="Database is not configured yet. Check the Vercel environment variables.";
-  }
+
+function formatDate(value) {
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return "";
+    }
+
+    return date.toLocaleDateString();
 }
-$("#search").addEventListener("input",render);
-$("#refresh").addEventListener("click",load);
-load();
+
+function escapeHtml(value) {
+    return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+}
+
+searchInput?.addEventListener("input", filterPosts);
+
+refreshBtn?.addEventListener("click", loadPosts);
+
+loadPosts();
